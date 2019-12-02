@@ -15,6 +15,12 @@ MuseScore {
     implicitWidth: fretView.implicitWidth
     implicitHeight: fretView.implicitHeight
 
+    QtObject {
+        id: compatibility
+
+        readonly property bool useApi334: mscoreVersion > 30303 // Cursor.addNote(pitch, addToChord), Cursor.prev()
+    }
+
     property var score: null
     property var cursor: null
 
@@ -159,6 +165,27 @@ MuseScore {
         console.log("guessed tuning:", tuning);
     }
 
+    function addNoteWithCursor(string, fret, addToChord) {
+        if (compatibility.useApi334)
+            cursor.addNote(fretplugin.getPitch(string, fret), addToChord);
+        else
+            cursor.addNote(fretplugin.getPitch(string, fret));
+
+        var note = curScore.selection.elements[0]; // TODO: is there any better way to get the last added note?
+        note.string = string;
+        note.fret = fret;
+        note.pitch = fretplugin.getPitch(string, fret);
+
+        if (!cursor.segment.is(findSegment(note))) {
+            if (compatibility.useApi334) {
+                cursor.track = note.track;
+                cursor.prev();
+            }
+        }
+
+        return note;
+    }
+
     function doAddNote(string, fret) {
         score.startCmd();
 
@@ -185,16 +212,21 @@ MuseScore {
                 // automatically
                 // TODO: or still compute TPC to preserve other properties?...
                 var oldNote = note;
-                if (oldNote)
-                    note = note.clone();
-                else
-                    note = newElement(Element.NOTE);
 
-                note.string = string;
-                note.fret = fret;
-                note.pitch = fretplugin.getPitch(string, fret);
+                if (compatibility.useApi334) {
+                    note = addNoteWithCursor(string, fret, /* addToChord */ true);
+                } else {
+                    if (oldNote)
+                        note = note.clone();
+                    else
+                        note = newElement(Element.NOTE);
 
-                chord.add(note);
+                    note.string = string;
+                    note.fret = fret;
+                    note.pitch = fretplugin.getPitch(string, fret);
+
+                    chord.add(note);
+                }
 
                 // removing the old note after adding the new one
                 // since otherwise we may happen to delete the last
@@ -202,14 +234,9 @@ MuseScore {
                 if (oldNote)
                     chord.remove(oldNote);
             }
-
         } else {
-            cursor.addNote(fretplugin.getPitch(string, fret));
-            note = curScore.selection.elements[0]; // TODO: is there any better way to get the last added note?
-            note.string = string;
-            note.fret = fret;
-            note.pitch = fretplugin.getPitch(string, fret);
-            }
+            note = addNoteWithCursor(string, fret, /* addToChord */ false);
+        }
 
         score.endCmd();
 
