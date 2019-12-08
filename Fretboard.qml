@@ -176,15 +176,44 @@ MuseScore {
     }
 
     function addNoteWithCursor(string, fret, addToChord) {
+        var oldNote = curScore.selection.elements[0];
+        if (oldNote && oldNote.type != Element.NOTE)
+            oldNote = null;
+
         if (compatibility.useApi334)
             cursor.addNote(fretplugin.getPitch(string, fret), addToChord);
         else
             cursor.addNote(fretplugin.getPitch(string, fret));
 
         var note = curScore.selection.elements[0]; // TODO: is there any better way to get the last added note?
+        if (note && note.type != Element.NOTE)
+            note = null;
+
+        if (!note || note.is(oldNote)) {
+            // no note has been added
+            if (addToChord) {
+                // fall back to adding a new note (maybe we are in a different voice?)
+                return addNoteWithCursor(string, fret, false);
+            }
+            return null;
+        }
+
         note.string = string;
         note.fret = fret;
         note.pitch = fretplugin.getPitch(string, fret);
+
+        if (oldNote && oldNote.voice != note.voice) {
+            // It is important to have a cursor on a correct string when
+            // switching voices to have a correct chord selected. Try to
+            // rewind tablature cursor to the correct string.
+            //
+            // TODO: rewind cursor in upside-down tablatures differently?
+            // (we don't know about them in plugins currently)
+            for (var i = 0; i < fretView.strings; ++i)
+                cmd("string-above");
+            for (var i = 0; i < note.string; ++i)
+                cmd("string-below");
+        }
 
         if (!cursor.segment.is(findSegment(note))) {
             if (compatibility.useApi334) {
