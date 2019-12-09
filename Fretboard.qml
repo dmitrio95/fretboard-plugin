@@ -1,5 +1,6 @@
-import QtQuick 2.0
+import QtQuick 2.6
 import QtQuick.Controls 2.1
+import QtQuick.Window 2.2
 import MuseScore 3.0
 
 MuseScore {
@@ -19,6 +20,15 @@ MuseScore {
         id: compatibility
 
         readonly property bool useApi334: mscoreVersion > 30303 // Cursor.addNote(pitch, addToChord), Cursor.prev()
+    }
+
+    readonly property bool darkMode: Window.window ? Window.window.color.hsvValue < 0.5 : false
+
+    QtObject {
+        id: style
+
+        readonly property color textColor: fretplugin.darkMode ? "#EFF0F1" : "#333333"
+        readonly property color backgroundColor: fretplugin.darkMode ? "#2C2C2C" : "#e3e3e3"
     }
 
     property var _CHORD_BY_TICK: ({})
@@ -467,6 +477,8 @@ MuseScore {
     Column {
         id: fretSettings
 
+        width: Math.max(stringsComboBox.implicitWidth, fretsComboBox.implicitWidth)
+
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
 
@@ -477,6 +489,8 @@ MuseScore {
                 ToolTip.visible: hovered
                 ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
                 ToolTip.text: qsTranslate("action", "Previous Chord")
+
+                Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })
             }
             ToolButton {
                 text: ">"
@@ -485,6 +499,8 @@ MuseScore {
                 ToolTip.visible: hovered
                 ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
                 ToolTip.text: qsTranslate("action", "Next Chord")
+
+                Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })                
             }
         }
 
@@ -502,16 +518,38 @@ MuseScore {
 
         ComboBox {
             id: stringsComboBox
+            width: parent.width
             currentIndex: 6
             displayText: qsTranslate("InspectorFretDiagram", "Strings:") + " " + currentText
             model: 11
+
+            contentItem: Text {
+                leftPadding: !stringsComboBox.mirrored ? 12 : 1
+                rightPadding: stringsComboBox.mirrored ? 12 : 1
+                text: parent.displayText
+                color: style.textColor
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Component.onCompleted: background.color = Qt.binding(function() { return style.backgroundColor; })            
         }
 
         ComboBox {
             id: fretsComboBox
+            width: parent.width
             currentIndex: 19
             displayText: qsTranslate("InspectorFretDiagram", "Frets:") + " " + currentText
             model: 51
+
+            contentItem: Text {
+                leftPadding: !fretsComboBox.mirrored ? 12 : 1
+                rightPadding: fretsComboBox.mirrored ? 12 : 1
+                text: parent.displayText
+                color: style.textColor
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Component.onCompleted: background.color = Qt.binding(function() { return style.backgroundColor; })            
         }
     }
 
