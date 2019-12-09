@@ -36,6 +36,7 @@ MuseScore {
     property var cursor: null
     property var tuning: [64, 59, 55, 50, 45, 40, 0, 0, 0, 0] // default is 6-string classical guitar tuning
 
+    property variant nameChord         : false
     property variant showNotesNames     : true  
     property variant showIntervals      : true  
     property variant showGuideTones     : false  
@@ -424,6 +425,17 @@ MuseScore {
             left: fretSettings.right
             top: fretView.bottom
             leftMargin: 40
+        }
+
+        CheckBox {
+            text: qsTranslate("action", "Name Chord")
+            checked: nameChord
+            indicator.width: 12
+            indicator.height: 12
+            onClicked: {
+                nameChord = checked
+                updateScoreChords(cursor, _CHORD_BY_TICK);
+            }
         }
 
         CheckBox {
@@ -1288,7 +1300,7 @@ MuseScore {
         var prev_chordName = undefined;
         var analisys = getChordName(chordNotes);
 
-        if (analisys.chordName !== '') { //chord has been identified
+        if (nameChord === true && analisys.chordName !== '') { //chord has been identified
             var harmony = getSegmentHarmony(segment);
             if (harmony) { //if chord symbol exists, replace it
                 //console.log("got harmony " + staffText + " with root: " + harmony.rootTpc + " bass: " + harmony.baseTpc);
