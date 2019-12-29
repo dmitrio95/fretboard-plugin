@@ -891,7 +891,7 @@ MuseScore {
     function setChordTypes() {
         // intervals (number of semitones from root note) for main chords types...          //TODO : revoir fonctionnement et identifier d'abord triad, puis seventh ?
         //          0    1   2    3        4   5          6      7    8         9     10    11
-        // numeric: R,  b9,  9,  m3(#9),  M3, 11(sus4), #11(b5), 5,  #5(b13),  13(6),  7,   M7  //Ziya
+        // numeric: R,  ♭9,  9,  m3(#9),  M3, 11(sus4), #11(♭5), 5,  #5(b13),  13(6),  7,   M7  //Ziya
         chord_type = [  [4,7],          //00: M (0)*
                             [3,7],          //01: m*
                             [3,6],          //02: dim*
@@ -905,8 +905,8 @@ MuseScore {
                             [4,8,11],       //10: #5Maj7 = Major Seventh, Raised Fifth*
                             [4,8,10],       //11: #57 = Dominant Seventh, Raised Fifth*
                             [4,8],          //12: #5 = Majör Raised Fifth*
-                            [3,6,10],       //13: m7b5 = minor 7th, Flat Fifth*
-                            [4,6,10],       //14: M7b5 = Major 7th, Flat Fifth*                     
+                            [3,6,10],       //13: m7♭5 = minor 7th, Flat Fifth*
+                            [4,6,10],       //14: M7♭5 = Major 7th, Flat Fifth*                     
                             [4,7,2],        //15: add9 = Major additional Ninth*
                             [4,7,11,2],     //16: Maj7(9) = Major Seventh, plus Ninth*
                             [4,7,10,2],     //17: 7(9) = Dominant Seventh, plus Ninth*
@@ -919,7 +919,7 @@ MuseScore {
                             [4,7,10,2,6],   //24: 9(#11) =  Dom. Seventh, Sharp Eleventh, plus Ninth*
                             [4,7,10,9],     //25: 7(13) =  Dom. Seventh, Thirteenth*
                             [4,7,10,2,9],   //26: 9(13) =  Dom. Seventh, Thirteenth, plus Ninth*
-                            [4,7,10,1],     //27: 7(b9) = Dominant Seventh, plus Flattened Ninth*
+                            [4,7,10,1],     //27: 7(♭9) = Dominant Seventh, plus Flattened Ninth*
                             [4,7,10,8],     //28: 7(b13) =  Dom. Seventh, Flattened Thirteenth*
                             [4,7,10,1,8],   //29: 7(b13b9) =  Dom. Seventh, Flattened Thirteenth, plus Flattened Ninth*
                             [4,7,10,1,5,8], //30: 7(b13b911) =  Dom. Seventh, Flattened Thirteenth plus Flattenet Ninth, plus Eleventh*
@@ -930,13 +930,13 @@ MuseScore {
                                                
         //Notice: [2,7],     //sus2  = Suspended Two // Not recognized; Recognized as 5sus/1 eg. c,d,g = Gsus4/C
         //Notice: [4,7,9],   //6  = Sixth // Not recognized; Recognized as vim7/1 eg. c,e,g,a = Am7/C
-        //Notice: [3,7,9],   //m6 = Minor Sixth // Not recognized; Recognized as vim7b5/1 eg. c,e,g,a = Am7b5/C
+        //Notice: [3,7,9],   //m6 = Minor Sixth // Not recognized; Recognized as vim7♭5/1 eg. c,e,g,a = Am7♭5/C
         //Notice: [4,7,9,2], //6(9) = Nine Sixth //Removed; clashed with m7(11)
         //Notive: [7],       //1+5 //Removed; has some problems
                             
                             //... and associated notation:
         //var chord_str = ["", "m", "\u00B0", "MM7", "m7", "Mm7", "\u00B07"];
-        chord_str = ["", "m", "dim", "sus4",  "7sus4", "Maj7", "m(Maj7)", "m7", "7", "dim7", "Maj7(#5)", "7(#5)", "(#5)", "m7(b5)", "7(b5)", "(add9)", "Maj9", "9", "m(add9)", "m9(Maj7)", "m9", "Maj7(#11)", "Maj9(#11)", "7(#11)", "9(#11)", "7(13)", "9(13)", "7(b9)","7(b13)", "7(b9/b13)", "11(b9/b13)", "7(#9)", "m7(11)", "m11", "x"];
+        chord_str = ["", "m", "dim", "sus4",  "7sus4", "Maj7", "m(Maj7)", "m7", "7", "dim7", "Maj7(#5)", "7(#5)", "(#5)", "m7(♭5)", "7(♭5)", "(add9)", "Maj9", "9", "m(add9)", "m9(Maj7)", "m9", "Maj7(#11)", "Maj9(#11)", "7(#11)", "9(#11)", "7(13)", "9(13)", "7(♭9)","7(b13)", "7(♭9/b13)", "11(♭9/b13)", "7(#9)", "m7(11)", "m11", "x"];
         /*var chord_type_reduced = [ [4],  //M
                                     [3],  //m
                                     [4,11],   //MM7
@@ -1085,7 +1085,7 @@ MuseScore {
                 chord[i].color = semitonesToColor(chord[i].semitones)
 
                 var n = semitonesToInterval(chord[i].semitones);
-                if (!(n == 'b3' || n == '3' || n == 'b7' || n == '7')) chord[i].guideTone = true
+                if (!(n == '♭3' || n == '3' || n == '♭7' || n == '7')) chord[i].guideTone = true
                 chord[i].chordIntervalName = n
 
                 if (showGuideTones) {
@@ -1170,16 +1170,16 @@ MuseScore {
     function semitonesToInterval(semitones) {
         semitones = Math.abs(semitones)%12
         if (semitones == 0) return "R"
-        if (semitones == 1) return "b9"
+        if (semitones == 1) return "♭9"
         if (semitones == 2) return "9"
-        if (semitones == 3) return "b3"
+        if (semitones == 3) return "♭3"
         if (semitones == 4) return "3"
         if (semitones == 5) return "11"
-        if (semitones == 6) return "b5"
+        if (semitones == 6) return "♭5"
         if (semitones == 7) return "5"
         if (semitones == 8) return "b13"
         if (semitones == 9) return "13"
-        if (semitones == 10) return "b7"
+        if (semitones == 10) return "♭7"
         if (semitones == 11) return "7"
         if (semitones == 12) return "R"
     }
