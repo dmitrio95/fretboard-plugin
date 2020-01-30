@@ -131,9 +131,15 @@ MuseScore {
     function updateCurrentScore() {
         if (curScore && !curScore.is(score)) {
             score = curScore;
-            // Obtaining a cursor while in note input mode can lead to crashes, prevent this
-            cmd("escape");
             cursor = score.newCursor();
+            if (typeof cursor.inputStateMode !== "undefined") {
+                // Possible future versions API expansion
+                cursor.inputStateMode = Cursor.INPUT_STATE_SYNC_WITH_SCORE;
+            } else {
+                // Obtaining a cursor while in note input mode can lead to crashes, prevent this
+                cmd("escape");
+                cursor = score.newCursor();
+            }
         } else if (score && !curScore) {
             score = null;
             cursor = null;
@@ -228,13 +234,13 @@ MuseScore {
         note.fret = fret;
         note.pitch = fretplugin.getPitch(string, fret);
 
-        if (oldNote && oldNote.voice != note.voice) {
+        if (typeof cursor.stringNumber !== "undefined") {
+            // Possible future versions API expansion
+            cursor.stringNumber = note.string;
+        } else if (oldNote && oldNote.voice != note.voice) {
             // It is important to have a cursor on a correct string when
             // switching voices to have a correct chord selected. Try to
             // rewind tablature cursor to the correct string.
-            //
-            // TODO: rewind cursor in upside-down tablatures differently?
-            // (we don't know about them in plugins currently)
             for (var i = 0; i < fretView.strings; ++i)
                 cmd("string-above");
             for (var i = 0; i < note.string; ++i)
