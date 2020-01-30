@@ -40,6 +40,25 @@ MuseScore {
         return tuning[string] + fret;
     }
 
+    readonly property var tpcNoteNames: [
+        "F♭♭", "C♭♭", "G♭♭", "D♭♭", "A♭♭", "E♭♭", "B♭♭",
+        "F♭", "C♭", "G♭", "D♭", "A♭", "E♭", "B♭",
+        "F", "C", "G", "D", "A", "E", "B",
+        "F♯", "C♯", "G♯", "D♯", "A♯", "E♯", "B♯",
+        "F♯♯", "C♯♯", "G♯♯", "D♯♯", "A♯♯", "E♯♯", "B♯♯"
+    ]
+    function getNoteName(tpc) {
+        return qsTranslate("InspectorAmbitus", tpcNoteNames[tpc + 1]);
+    }
+
+    function guessNoteName(string, fret) {
+        var pitch = getPitch(string, fret);
+        var key = cursor.keySignature;
+        // copied from pitch2tpc FIXME
+        var tpc = (pitch * 7 + 26 - (11 + key)) % 12 + (11 + key);
+        return getNoteName(tpc);
+    }
+
     function findSegment(e) {
         while (e && e.type != Element.SEGMENT)
             e = e.parent;
@@ -84,22 +103,29 @@ MuseScore {
         var chord = findSelectedChord();
 
         var frets = [];
-        for (var i = 0; i < tuning.length; ++i)
+        var noteInfo = [];
+        for (var i = 0; i < tuning.length; ++i) {
             frets.push(-1);
+            noteInfo.push("");
+        }
 
         if (!chord) {
             fretView.selectedIndices = frets;
+            fretView.selectedNotes = noteInfo;
             return;
         }
 
         var notes = chord.notes;
         for (var i = 0; i < notes.length; ++i) {
             var n = notes[i];
-            if (n.string > -1 && n.fret > -1)
-                frets[n.string] = n.fret
+            if (n.string > -1 && n.fret > -1) {
+                frets[n.string] = n.fret;
+                noteInfo[n.string] = getNoteName(n.tpc);
+                }
         }
 
         fretView.selectedIndices = frets;
+        fretView.selectedNotes = noteInfo;
     }
 
     function updateCurrentScore() {
@@ -307,13 +333,35 @@ MuseScore {
     }
 
     Component {
-        id: markerComponent
+        id: dotComponent
         Rectangle {
             height: 16
             width: 16
             radius: 16
 
+            color: "black"
+        }
+    }
+
+    Component {
+        id: markerComponent
+
+        Rectangle {
+            id: marker
+            property string text: ""
+
+            height: 18
+            width: 18
+            radius: 18
+
             color: "red"
+
+            Text {
+                anchors.centerIn: parent
+                font.pixelSize: 14
+                fontSizeMode: Text.Fit
+                text: marker.text
+            }
         }
     }
 
@@ -422,20 +470,12 @@ MuseScore {
             }
 
             Loader {
-                sourceComponent: parent.hasTopHalfDot ? markerComponent : null
+                sourceComponent: parent.hasTopHalfDot ? dotComponent : null
                 anchors { horizontalCenter: parent.horizontalCenter; verticalCenter: parent.top }
-                onLoaded: {
-                    if (item)
-                        item.color = "black"
-                }
             }
             Loader {
-                sourceComponent: parent.hasBottomHalfDot ? markerComponent : null
+                sourceComponent: parent.hasBottomHalfDot ? dotComponent : null
                 anchors { horizontalCenter: parent.horizontalCenter; verticalCenter: parent.bottom }
-                onLoaded: {
-                    if (item)
-                        item.color = "black"
-                }
             }
         }
     }
@@ -479,6 +519,7 @@ MuseScore {
         }
 
         property var selectedIndices: []
+        property var selectedNotes: []
 
         property int frets: +fretsComboBox.currentText + 1
         property int strings: +stringsComboBox.currentText
@@ -525,9 +566,22 @@ MuseScore {
                 }
 
                 Loader {
+                    id: markerLoader
                     sourceComponent: markerComponent
                     anchors.centerIn: parent
-                    visible: fretRect.marked
+                    visible: fretRect.marked || fretRect.hovered
+                    opacity: fretRect.marked ? 1.0 : 0.67
+                    onVisibleChanged: {
+                        if (visible && !fretRect.marked)
+                            markerLoader.item.text = fretplugin.guessNoteName(fretRect.str, fretRect.fret);
+                    }
+                }
+
+                onMarkedChanged: {
+                    if (marked)
+                        markerLoader.item.text = Qt.binding(function() { return fretView.selectedNotes[str]; });
+                    else
+                        markerLoader.item.text = fretplugin.guessNoteName(fretRect.str, fretRect.fret);
                 }
             }
         }
