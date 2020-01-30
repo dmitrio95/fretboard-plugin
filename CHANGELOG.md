@@ -1,5 +1,14 @@
 # Changelog
 
+### 0.3.0 - 2020-01-30
+- Note input process:
+  - Add labels with note names to note markers
+  - Show semi-transparent note labels on hovering a fret
+- Internal changes:
+  - Adapt to possible Cursor API changes (https://github.com/musescore/MuseScore/pull/5657):
+    - Ensure internal Cursor is always synchronized with user input state
+    - Move input cursor to the relevant string after note input
+
 ### 0.2.0 - 2019-12-08
 - Note input process:
   - Make a chord be played when adding a note to it. Previously this worked only for the first note in a chord. (Requires MuseScore 3.3.4)
