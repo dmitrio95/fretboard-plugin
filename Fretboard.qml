@@ -102,29 +102,46 @@ MuseScore {
     function updateSelectedChord() {
         var chord = findSelectedChord();
 
-        var frets = [];
-        var noteInfo = [];
-        for (var i = 0; i < tuning.length; ++i) {
-            frets.push(-1);
-            noteInfo.push("");
-        }
+        if (chord) {
+            setDisplayedNotes(chord.notes);
+        } else {
+            setDisplayedNotes([]);
+        }z
+    }
 
-        if (!chord) {
-            fretView.selectedIndices = frets;
-            fretView.selectedNotes = noteInfo;
-            return;
-        }
+    function updateSelection() {
+        if (score.selection.isRange) { // MuseScore 3.5+
+            var selectedElements = score.selection.elements;
+            var notes = [];
 
-        var notes = chord.notes;
+            for (var i = 0; i < selectedElements.length; ++i) {
+                var e = selectedElements[i];
+                if (e.type == Element.NOTE) {
+                    notes.push(e);
+                }
+            }
+
+            setDisplayedNotes(notes);
+        } else {
+            updateSelectedChord();
+        }
+    }
+
+    function getFretIndex(string, fret) {
+        return tuning.length * fret + string;
+    }
+
+    function setDisplayedNotes(notes) {
+        var noteInfo = {};
+
         for (var i = 0; i < notes.length; ++i) {
             var n = notes[i];
             if (n.string > -1 && n.fret > -1) {
-                frets[n.string] = n.fret;
-                noteInfo[n.string] = getNoteName(n.tpc);
-                }
+                var idx = getFretIndex(n.string, n.fret);
+                noteInfo[idx] = getNoteName(n.tpc);
+            }
         }
 
-        fretView.selectedIndices = frets;
         fretView.selectedNotes = noteInfo;
     }
 
@@ -150,12 +167,12 @@ MuseScore {
         updateCurrentScore();
 
         if (state.selectionChanged)
-            updateSelectedChord();
+            updateSelection();
     }
 
     onRun: {
         updateCurrentScore();
-        updateSelectedChord();
+        updateSelection();
     }
 
     function determineTuning(chord) {
@@ -318,6 +335,9 @@ MuseScore {
         if (!score.is(curScore))
             return;
 
+        if (score.selection.isRange) // MuseScore 3.5+
+            return;
+
         var note = doAddNote(string, fret);
 
         if (note && (note.string != string || note.fret != fret)) {
@@ -335,7 +355,7 @@ MuseScore {
         }
 
         // our changes may have not triggered selection change
-        updateSelectedChord();
+        updateSelection();
     }
 
     Component {
@@ -524,8 +544,7 @@ MuseScore {
             leftMargin: 8
         }
 
-        property var selectedIndices: []
-        property var selectedNotes: []
+        property var selectedNotes: Object()
 
         property int frets: +fretsComboBox.currentText + 1
         property int strings: +stringsComboBox.currentText
@@ -557,7 +576,7 @@ MuseScore {
                 implicitWidth: 70 * Math.pow(0.96, fret)
                 implicitHeight: 25
 
-                property bool marked: fretView.selectedIndices[str] == fret
+                property bool marked: !!fretView.selectedNotes[getFretIndex(str, fret)]
 
                 property int str: Math.floor(model.index / fretView.frets)
                 property int fret: model.index % fretView.frets
@@ -585,7 +604,7 @@ MuseScore {
 
                 onMarkedChanged: {
                     if (marked)
-                        markerLoader.item.text = Qt.binding(function() { return fretView.selectedNotes[str]; });
+                        markerLoader.item.text = Qt.binding(function() { return fretView.selectedNotes[getFretIndex(str, fret)] || ""; });
                     else
                         markerLoader.item.text = fretplugin.guessNoteName(fretRect.str, fretRect.fret);
                 }
