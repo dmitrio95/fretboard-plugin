@@ -1,5 +1,8 @@
 # Changelog
 
+### 0.4.0 - 2021-10-25
+- Fretboard now displays all selected notes for a range selection. To avoid possible confusion note input is blocked in this case. (Requires MuseScore 3.5)
+
 ### 0.3.0 - 2020-01-30
 - Note input process:
   - Add labels with note names to note markers

@@ -6,7 +6,7 @@ import MuseScore 3.0
 MuseScore {
     id: fretplugin
     menuPath: "Plugins.Fretboard"
-    version:  "0.3.0"
+    version:  "0.4.0"
     description: "Simple guitar fretboard to visualise and edit tablature scores"
     requiresScore: false
 
