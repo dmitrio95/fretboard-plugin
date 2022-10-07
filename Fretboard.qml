@@ -463,6 +463,13 @@ MuseScore {
 
             Component.onCompleted: background.color = Qt.binding(function() { return style.backgroundColor; })
         }
+
+        CheckBox {
+            id: leftHandedCheckBox
+            width: parent.width
+            checked: false
+            text: "Left-handed"
+        }
     }
 
     Component {
@@ -478,7 +485,8 @@ MuseScore {
             Rectangle {
                 width: 1
                 anchors {
-                    left: parent.left
+                    left: fretView.leftHanded ? undefined : parent.left
+                    right: fretView.leftHanded ? parent.right : undefined
                     top: parent.top
                     bottom: parent.bottom
                 }
@@ -548,6 +556,13 @@ MuseScore {
 
         property int frets: +fretsComboBox.currentText + 1
         property int strings: +stringsComboBox.currentText
+        property bool leftHanded: leftHandedCheckBox.checked
+
+        onLeftHandedChanged: {
+            // Force rebuilding the view. Otherwise the leftmost fret doesn't display well.
+            visible = false;
+            visible = true;
+        }
 
         columns: frets
         rows: strings
@@ -569,7 +584,7 @@ MuseScore {
         }
 
         Repeater {
-            model: fretView.frets * fretView.strings
+            model: fretView.visible ? (fretView.frets * fretView.strings) : 0
 
             delegate: ItemDelegate {
                 id: fretRect
@@ -579,7 +594,7 @@ MuseScore {
                 property bool marked: !!fretView.selectedNotes[getFretIndex(str, fret)]
 
                 property int str: Math.floor(model.index / fretView.frets)
-                property int fret: model.index % fretView.frets
+                property int fret: fretView.leftHanded ? (fretView.frets - 1 - (model.index % fretView.frets)) : (model.index % fretView.frets)
 
                 onClicked: fretplugin.addNote(str, fret)
 
@@ -596,13 +611,19 @@ MuseScore {
                     anchors.centerIn: parent
                     visible: fretRect.marked || fretRect.hovered
                     opacity: fretRect.marked ? 1.0 : 0.67
+                    Component.onCompleted: {
+                        if (visible)
+                            fretRect.setMarkerText()
+                    }
                     onVisibleChanged: {
                         if (visible && !fretRect.marked)
-                            markerLoader.item.text = fretplugin.guessNoteName(fretRect.str, fretRect.fret);
+                            fretRect.setMarkerText()
                     }
                 }
 
-                onMarkedChanged: {
+                onMarkedChanged: setMarkerText()
+
+                function setMarkerText() {
                     if (marked)
                         markerLoader.item.text = Qt.binding(function() { return fretView.selectedNotes[getFretIndex(str, fret)] || ""; });
                     else
