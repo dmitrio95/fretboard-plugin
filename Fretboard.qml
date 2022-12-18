@@ -469,6 +469,8 @@ MuseScore {
             width: parent.width
             checked: false
             text: "Left-handed"
+
+            Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })
         }
     }
 
