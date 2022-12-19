@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.5.0 - 2022-12-19
+- Add support for MuseScore 4
+- The plugin now automatically determines a number of strings and frets for the selected instrument and switches its settings accordingly. Handling of tunings for different instruments is also partially improved. (Requires MuseScore 3.5)
+- Allow horizontal flip of the fretboard for left-handed players
+
 ### 0.4.0 - 2021-10-25
 - Fretboard now displays all selected notes for a range selection. To avoid possible confusion note input is blocked in this case. (Requires MuseScore 3.5)
 

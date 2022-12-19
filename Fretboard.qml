@@ -1,637 +1,171 @@
-import QtQuick 2.6
-import QtQuick.Controls 2.1
-import QtQuick.Window 2.2
+import QtQuick 2.9
 import MuseScore 3.0
 
 MuseScore {
-    id: fretplugin
-    menuPath: "Plugins.Fretboard"
-    version:  "0.4.0"
+    id: plugin
+    version:  "0.5.0"
     description: "Simple guitar fretboard to visualise and edit tablature scores"
-    requiresScore: false
+    requiresScore: compatibility.useApi4
 
-    pluginType: "dock"
-    dockArea: "bottom"
-
-    implicitWidth: fretView.implicitWidth
-    implicitHeight: fretView.implicitHeight
+    implicitWidth: fretLoader.item ? fretLoader.item.implicitWidth : 0
+    implicitHeight: fretLoader.item ? fretLoader.item.implicitHeight : 0
 
     QtObject {
         id: compatibility
 
-        readonly property bool useApi334: mscoreVersion > 30303 // Cursor.addNote(pitch, addToChord), Cursor.prev()
+        readonly property bool useApi4: mscoreVersion >= 40000
     }
 
-    readonly property bool darkMode: Window.window ? Window.window.color.hsvValue < 0.5 : false
-
-    QtObject {
-        id: style
-
-        readonly property color textColor: fretplugin.darkMode ? "#EFF0F1" : "#333333"
-        readonly property color backgroundColor: fretplugin.darkMode ? "#2C2C2C" : "#e3e3e3"
-    }
-
-    property var score: null
-    property var cursor: null
-
-    property var tuning: [64, 59, 55, 50, 45, 40, 0, 0, 0, 0] // default is 6-string classical guitar tuning
-
-    function getPitch(string, fret) {
-        return tuning[string] + fret;
-    }
-
-    readonly property var tpcNoteNames: [
-        "F♭♭", "C♭♭", "G♭♭", "D♭♭", "A♭♭", "E♭♭", "B♭♭",
-        "F♭", "C♭", "G♭", "D♭", "A♭", "E♭", "B♭",
-        "F", "C", "G", "D", "A", "E", "B",
-        "F♯", "C♯", "G♯", "D♯", "A♯", "E♯", "B♯",
-        "F♯♯", "C♯♯", "G♯♯", "D♯♯", "A♯♯", "E♯♯", "B♯♯"
-    ]
-    function getNoteName(tpc) {
-        return qsTranslate("InspectorAmbitus", tpcNoteNames[tpc + 1]);
-    }
-
-    function guessNoteName(string, fret) {
-        var pitch = getPitch(string, fret);
-        var key = cursor.keySignature;
-        // copied from pitch2tpc FIXME
-        var tpc = (pitch * 7 + 26 - (11 + key)) % 12 + (11 + key);
-        return getNoteName(tpc);
-    }
-
-    function findSegment(e) {
-        while (e && e.type != Element.SEGMENT)
-            e = e.parent;
-        return e;
-    }
-
-    function findSelectedChord() {
-        if (!score)
-            return null;
-
-        var selectedElements = score.selection.elements;
-        for (var i = 0; i < selectedElements.length; ++i) {
-            var e = selectedElements[i];
-            if (e.type == Element.NOTE) {
-                var chord = e.parent;
-
-                // HACK
-                // removeElement(chord) may leave the chord selected,
-                // so ensure this chord is really bound to a segment
-                // or another chord as a grace note.
-                var seg = findSegment(chord);
-                var realChord = seg.elementAt(chord.track);
-
-                if (!realChord || realChord.type != Element.CHORD)
-                    return null;
-
-                if (chord.is(realChord))
-                    return chord;
-
-                var grace = realChord.graceNotes;
-                for (var i = 0; i < grace.length; ++i) {
-                    if (grace[i].is(chord))
-                        return chord;
-                }
-
-                return null;
-            }
-        }
-    }
-
-    function updateSelectedChord() {
-        var chord = findSelectedChord();
-
-        if (chord) {
-            setDisplayedNotes(chord.notes);
+    Component.onCompleted: {
+        if (compatibility.useApi4) {
+            plugin.title = "Fretboard";
+            plugin.categoryCode = "note-input";
         } else {
-            setDisplayedNotes([]);
-        }z
-    }
-
-    function updateSelection() {
-        if (score.selection.isRange) { // MuseScore 3.5+
-            var selectedElements = score.selection.elements;
-            var notes = [];
-
-            for (var i = 0; i < selectedElements.length; ++i) {
-                var e = selectedElements[i];
-                if (e.type == Element.NOTE) {
-                    notes.push(e);
-                }
-            }
-
-            setDisplayedNotes(notes);
-        } else {
-            updateSelectedChord();
+            plugin.menuPath = "Plugins.Fretboard";
+            plugin.pluginType = "dock";
+            plugin.dockArea = "bottom";
         }
     }
 
-    function getFretIndex(string, fret) {
-        return tuning.length * fret + string;
+    readonly property string pluginPanelObjectName: "FretPluginPanel"
+    readonly property var fretboard: pluginDockPanel ? pluginDockPanel.fretboard : fretLoader.item
+    property var pluginDockPanel: null
+
+    Loader {
+        id: fretLoader
+        source: compatibility.useApi4 ? "" : "FretboardComponent.qml"
+        onLoaded: item.mscore = plugin
     }
 
-    function setDisplayedNotes(notes) {
-        var noteInfo = {};
+    function findChild(item, objectName) {
+        var children = item.children;
 
-        for (var i = 0; i < notes.length; ++i) {
-            var n = notes[i];
-            if (n.string > -1 && n.fret > -1) {
-                var idx = getFretIndex(n.string, n.fret);
-                noteInfo[idx] = getNoteName(n.tpc);
+        for (var i = 0; i < children.length; ++i) {
+            if (children[i].objectName == objectName) {
+                return children[i];
+            }
+
+            var obj = findChild(children[i], objectName);
+
+            if (obj) {
+                return obj;
             }
         }
 
-        fretView.selectedNotes = noteInfo;
+        return null;
     }
 
-    function updateCurrentScore() {
-        if (curScore && !curScore.is(score)) {
-            score = curScore;
-            cursor = score.newCursor();
-            if (typeof cursor.inputStateMode !== "undefined") {
-                // Possible future versions API expansion
-                cursor.inputStateMode = Cursor.INPUT_STATE_SYNC_WITH_SCORE;
-            } else {
-                // Obtaining a cursor while in note input mode can lead to crashes, prevent this
-                cmd("escape");
-                cursor = score.newCursor();
-            }
-        } else if (score && !curScore) {
-            score = null;
-            cursor = null;
-        }
-    }
+    function addPluginToDockMU4() {
+        var root = ui.rootItem;
+        var windowContent = findChild(root, "WindowContent");
+        var notationPage = null;
 
-    onScoreStateChanged: {
-        updateCurrentScore();
+        if (windowContent) {
+            for (var i = 0; i < windowContent.pages.length; ++i) {
+                var page = windowContent.pages[i];
 
-        if (state.selectionChanged)
-            updateSelection();
-    }
-
-    onRun: {
-        updateCurrentScore();
-        updateSelection();
-    }
-
-    function determineTuning(chord) {
-        if (!chord)
-            return;
-
-        for (var i = 0; i < tuning.length; ++i)
-            tuning[i] = 0;
-
-        for (var i = 0; i < chord.notes.length; ++i) {
-            var existingNote = chord.notes[i];
-            tuning[existingNote.string] = existingNote.pitch - existingNote.fret;
-        }
-
-        var string = 0;
-        var step = 12;
-
-        for (var pitch = 127; pitch > 0; pitch -= step) {
-            var testNote = newElement(Element.NOTE);
-            testNote.string = string;
-            testNote.pitch = pitch;
-
-            curScore.startCmd();
-            chord.add(testNote);
-            curScore.endCmd();
-
-            if (testNote.string > -1 && testNote.fret > -1) {
-                const testNoteString = testNote.string;
-                if (testNote.fret > 0) {
-                    tuning[testNoteString] = pitch - testNote.fret;
-                    string = testNoteString + 1;
-                    // switch to a smaller step if haven't done it yet
-                    step = 4;
-                } else if (!tuning[testNoteString])
-                    tuning[testNoteString] = pitch - testNote.fret;
-            }
-
-            cmd("undo");
-        }
-
-        // TODO: make it toggleable? Or make it done on each selection change (then record tunings for tracks?)
-        var nstrings = 0;
-        for (var i = 0; i < tuning.length; ++i) {
-            if (tuning[i])
-                nstrings = i + 1;
-        }
-        stringsComboBox.currentIndex = nstrings;
-
-        console.log("guessed tuning:", tuning);
-    }
-
-    function addNoteWithCursor(string, fret, addToChord) {
-        var oldNote = curScore.selection.elements[0];
-        if (oldNote && oldNote.type != Element.NOTE)
-            oldNote = null;
-
-        if (compatibility.useApi334)
-            cursor.addNote(fretplugin.getPitch(string, fret), addToChord);
-        else
-            cursor.addNote(fretplugin.getPitch(string, fret));
-
-        var note = curScore.selection.elements[0]; // TODO: is there any better way to get the last added note?
-        if (note && note.type != Element.NOTE)
-            note = null;
-
-        if (!note || note.is(oldNote)) {
-            // no note has been added
-            if (addToChord) {
-                // fall back to adding a new note (maybe we are in a different voice?)
-                return addNoteWithCursor(string, fret, false);
-            }
-            return null;
-        }
-
-        note.string = string;
-        note.fret = fret;
-        note.pitch = fretplugin.getPitch(string, fret);
-
-        if (typeof cursor.stringNumber !== "undefined") {
-            // Possible future versions API expansion
-            cursor.stringNumber = note.string;
-        } else if (oldNote && oldNote.voice != note.voice) {
-            // It is important to have a cursor on a correct string when
-            // switching voices to have a correct chord selected. Try to
-            // rewind tablature cursor to the correct string.
-            for (var i = 0; i < fretView.strings; ++i)
-                cmd("string-above");
-            for (var i = 0; i < note.string; ++i)
-                cmd("string-below");
-        }
-
-        if (!cursor.segment.is(findSegment(note))) {
-            if (compatibility.useApi334) {
-                cursor.track = note.track;
-                cursor.prev();
-            }
-        }
-
-        return note;
-    }
-
-    function doAddNote(string, fret) {
-        score.startCmd();
-
-        var chord = findSelectedChord();
-        var note = null;
-
-        if (chord) {
-            var chordNotes = chord.notes;
-            for (var i = 0; i < chordNotes.length; ++i) {
-                var chordNote = chordNotes[i];
-                if (chordNote.string == string) {
-                    note = chordNote;
+                if (page.objectName == "Notation") {
+                    notationPage = page;
                     break;
                 }
             }
+        }
 
-            if (note && note.string == string && note.fret == fret) {
-                removeElement(note);
-                // TODO: removing last note leaves the removed chord selected...
-                // see HACK in findSelectedChord() to work around this
+        if (notationPage) {
+            pluginDockPanel = null;
+            var pianoKeyboard = null;
+            var pianoKeyboardObjectName = notationPage.pageModel.pianoKeyboardPanelName();
+
+            for (var i = 0; i < notationPage.panels.length; ++i) {
+                var panel = notationPage.panels[i];
+
+                if (panel.objectName == pluginPanelObjectName) {
+                    pluginDockPanel = panel;
+                } else if (panel.objectName == pianoKeyboardObjectName) {
+                    pianoKeyboard = panel;
+                }
+            }
+
+            if (!pluginDockPanel) {
+                var pluginDockComponent = Qt.createComponent("MU4FretboardDockPanel.qml");
+                pluginDockPanel = pluginDockComponent.createObject(notationPage, {root: notationPage, mscore: plugin});
+                notationPage.panels.push(pluginDockPanel);
+            }
+
+            var alreadyVisible = pluginDockPanel.visible;
+
+            if (pianoKeyboard) {
+                var wasPianoKeyboardHidden = !pianoKeyboard.visible;
+
+                // Need to show a dock widget at the bottom. Otherwise our dock widget would start with a floating state.
+                if (wasPianoKeyboardHidden) {
+                    cmd("toggle-piano-keyboard");
+                }
+
+                var pluginDockPanelObjectName = pluginDockPanel.objectName;
+                pianoKeyboard.objectName = "tmp";
+                pluginDockPanel.objectName = pianoKeyboardObjectName;
+
+                if (alreadyVisible) {
+                    // Toggle twice to bring the plugin to the top.
+                    cmd("toggle-piano-keyboard");
+                }
+                cmd("toggle-piano-keyboard");
+
+                pluginDockPanel.objectName = pluginDockPanelObjectName;
+                pianoKeyboard.objectName = pianoKeyboardObjectName;
+
+                if (wasPianoKeyboardHidden) {
+                    cmd("toggle-piano-keyboard");
+                }
+
+                fretboard.onRun();
+            }
+        }
+    }
+
+    // MuseScore 4 doesn't yet emit the scoreStateChanged signal,
+    // so update state periodically in a certain interval instead.
+    Timer {
+        id: updateTimer
+        interval: 33 // ms
+        repeat: true
+        onTriggered: fretboard.updateState(true)
+
+        function updateState() {
+            if (fretboard.mscore == plugin && fretboard.visible && Qt.application.state == Qt.ApplicationActive) {
+                start();
             } else {
-                // To avoid computing TPC manually remove the old note
-                // and insert the new one: TPC will be computed for it
-                // automatically
-                // TODO: or still compute TPC to preserve other properties?...
-                var oldNote = note;
-
-                if (compatibility.useApi334) {
-                    note = addNoteWithCursor(string, fret, /* addToChord */ true);
-                } else {
-                    if (oldNote)
-                        note = note.clone();
-                    else
-                        note = newElement(Element.NOTE);
-
-                    note.string = string;
-                    note.fret = fret;
-                    note.pitch = fretplugin.getPitch(string, fret);
-
-                    chord.add(note);
-                }
-
-                // removing the old note after adding the new one
-                // since otherwise we may happen to delete the last
-                // note of a chord which is forbidden.
-                if (oldNote)
-                    chord.remove(oldNote);
+                stop();
             }
+        }
+    }
+
+    Connections {
+        target: fretboard
+        enabled: compatibility.useApi4
+        onVisibleChanged: updateTimer.updateState()
+    }
+
+    Connections {
+        target: Qt.application
+        enabled: compatibility.useApi4
+        onStateChanged: updateTimer.updateState()
+    }
+
+    onScoreStateChanged: {
+        if (compatibility.useApi4) {
+            // MuseScore 4 doesn't yet provide this signal, no handling for now.
         } else {
-            note = addNoteWithCursor(string, fret, /* addToChord */ false);
-        }
-
-        score.endCmd();
-
-        return note;
-    }
-
-    function addNote(string, fret) {
-        if (!score.is(curScore))
-            return;
-
-        if (score.selection.isRange) // MuseScore 3.5+
-            return;
-
-        var note = doAddNote(string, fret);
-
-        if (note && (note.string != string || note.fret != fret)) {
-            console.log("couldn't add a note, try changing tuning...")
-            var chord = note.parent;
-            determineTuning(chord);
-            cmd("undo");
-
-            // try with the adjusted tuning
-            note = doAddNote(string, fret);
-            if (note && (note.string != string || note.fret != fret)) {
-                console.log("still couldn't add a note, revert")
-                cmd("undo");
-            }
-        }
-
-        // our changes may have not triggered selection change
-        updateSelection();
-    }
-
-    Component {
-        id: dotComponent
-        Rectangle {
-            height: 16
-            width: 16
-            radius: 16
-
-            color: "black"
+            fretboard.updateState(state.selectionChanged);
         }
     }
 
-    Component {
-        id: markerComponent
-
-        Rectangle {
-            id: marker
-            property string text: ""
-
-            height: 18
-            width: 18
-            radius: 18
-
-            color: "red"
-
-            Text {
-                anchors.centerIn: parent
-                font.pixelSize: 14
-                fontSizeMode: Text.Fit
-                text: marker.text
-            }
-        }
-    }
-
-    Column {
-        id: fretSettings
-
-        width: Math.max(stringsComboBox.implicitWidth, fretsComboBox.implicitWidth)
-
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-
-            ToolButton {
-                text: "<"
-                onClicked: cmd("prev-chord")
-
-                ToolTip.visible: hovered
-                ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-                ToolTip.text: qsTranslate("action", "Previous Chord")
-
-                Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })
-            }
-            ToolButton {
-                text: ">"
-                onClicked: cmd("next-chord")
-
-                ToolTip.visible: hovered
-                ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-                ToolTip.text: qsTranslate("action", "Next Chord")
-
-                Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })
-            }
+    onRun: {
+        if (compatibility.useApi4) {
+            addPluginToDockMU4();
         }
 
-        ToolSeparator {
-            width: parent.width
-            orientation: Qt.Horizontal
-        }
-
-        ComboBox {
-            id: stringsComboBox
-            width: parent.width
-
-            currentIndex: 6
-            displayText: qsTranslate("InspectorFretDiagram", "Strings:") + " " + currentText
-            model: 11
-
-            contentItem: Text {
-                leftPadding: !stringsComboBox.mirrored ? 12 : 1
-                rightPadding: stringsComboBox.mirrored ? 12 : 1
-                text: parent.displayText
-                color: style.textColor
-                verticalAlignment: Text.AlignVCenter
-            }
-
-            Component.onCompleted: background.color = Qt.binding(function() { return style.backgroundColor; })
-        }
-
-        ComboBox {
-            id: fretsComboBox
-            width: parent.width
-
-            currentIndex: 19
-            displayText: qsTranslate("InspectorFretDiagram", "Frets:") + " " + currentText
-            model: 51
-
-            contentItem: Text {
-                leftPadding: !fretsComboBox.mirrored ? 12 : 1
-                rightPadding: fretsComboBox.mirrored ? 12 : 1
-                text: parent.displayText
-                color: style.textColor
-                verticalAlignment: Text.AlignVCenter
-            }
-
-            Component.onCompleted: background.color = Qt.binding(function() { return style.backgroundColor; })
-        }
-
-        CheckBox {
-            id: leftHandedCheckBox
-            width: parent.width
-            checked: false
-            text: "Left-handed"
-
-            Component.onCompleted: contentItem.color = Qt.binding(function() { return style.textColor; })
-        }
-    }
-
-    Component {
-        id: fretNormalComponent
-
-        Rectangle {
-            property bool hasTopHalfDot: false
-            property bool hasBottomHalfDot: false
-            color: "brown"
-
-            clip: true
-
-            Rectangle {
-                width: 1
-                anchors {
-                    left: fretView.leftHanded ? undefined : parent.left
-                    right: fretView.leftHanded ? parent.right : undefined
-                    top: parent.top
-                    bottom: parent.bottom
-                }
-                color: "white"
-            }
-
-            Rectangle {
-                height: 2
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    verticalCenter: parent.verticalCenter
-                }
-                color: "black"
-            }
-
-            Loader {
-                sourceComponent: parent.hasTopHalfDot ? dotComponent : null
-                anchors { horizontalCenter: parent.horizontalCenter; verticalCenter: parent.top }
-            }
-            Loader {
-                sourceComponent: parent.hasBottomHalfDot ? dotComponent : null
-                anchors { horizontalCenter: parent.horizontalCenter; verticalCenter: parent.bottom }
-            }
-        }
-    }
-
-    Component {
-        id: fretZeroComponent
-
-        Item {
-            property bool hasTopHalfDot: false
-            property bool hasBottomHalfDot: false
-
-            Rectangle {
-                id: fretZero
-                width: parent.width / 2
-                anchors {
-                    right: parent.right
-                    top: parent.top
-                    bottom: parent.bottom
-                }
-                color: "darkgrey"
-            }
-
-            Rectangle {
-                height: 2
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    verticalCenter: parent.verticalCenter
-                }
-                color: "black"
-            }
-        }
-    }
-
-    Grid {
-        id: fretView
-
-        anchors {
-            left: fretSettings.right
-            leftMargin: 8
-        }
-
-        property var selectedNotes: Object()
-
-        property int frets: +fretsComboBox.currentText + 1
-        property int strings: +stringsComboBox.currentText
-        property bool leftHanded: leftHandedCheckBox.checked
-
-        onLeftHandedChanged: {
-            // Force rebuilding the view. Otherwise the leftmost fret doesn't display well.
-            visible = false;
-            visible = true;
-        }
-
-        columns: frets
-        rows: strings
-
-        property var dots: [3, 5, 7, 9, 15, 17, 19, 21]
-        property var doubleDots: [12, 24]
-
-        function hasDot(string, fret) {
-            if (string == 0)
-                return false;
-
-            var mid = Math.floor(strings / 2);
-
-            if (string == mid - 1 || string == mid + 1)
-                return doubleDots.indexOf(fret) != -1;
-            if (string == mid)
-                return dots.indexOf(fret) != -1;
-            return false;
-        }
-
-        Repeater {
-            model: fretView.visible ? (fretView.frets * fretView.strings) : 0
-
-            delegate: ItemDelegate {
-                id: fretRect
-                implicitWidth: 70 * Math.pow(0.96, fret)
-                implicitHeight: 25
-
-                property bool marked: !!fretView.selectedNotes[getFretIndex(str, fret)]
-
-                property int str: Math.floor(model.index / fretView.frets)
-                property int fret: fretView.leftHanded ? (fretView.frets - 1 - (model.index % fretView.frets)) : (model.index % fretView.frets)
-
-                onClicked: fretplugin.addNote(str, fret)
-
-                background: Loader {
-                    id: loader
-                    sourceComponent: fret === 0 ? fretZeroComponent : fretNormalComponent
-                    Binding { target: loader.item; property: "hasTopHalfDot"; value: fretView.hasDot(fretRect.str, fretRect.fret) }
-                    Binding { target: loader.item; property: "hasBottomHalfDot"; value: fretRect.str + 1 < fretView.strings && fretView.hasDot(fretRect.str + 1, fretRect.fret) }
-                }
-
-                Loader {
-                    id: markerLoader
-                    sourceComponent: markerComponent
-                    anchors.centerIn: parent
-                    visible: fretRect.marked || fretRect.hovered
-                    opacity: fretRect.marked ? 1.0 : 0.67
-                    Component.onCompleted: {
-                        if (visible)
-                            fretRect.setMarkerText()
-                    }
-                    onVisibleChanged: {
-                        if (visible && !fretRect.marked)
-                            fretRect.setMarkerText()
-                    }
-                }
-
-                onMarkedChanged: setMarkerText()
-
-                function setMarkerText() {
-                    if (marked)
-                        markerLoader.item.text = Qt.binding(function() { return fretView.selectedNotes[getFretIndex(str, fret)] || ""; });
-                    else
-                        markerLoader.item.text = fretplugin.guessNoteName(fretRect.str, fretRect.fret);
-                }
-            }
-        }
+        fretboard.onRun();
     }
 }
