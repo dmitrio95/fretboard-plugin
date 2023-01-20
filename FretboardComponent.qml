@@ -246,7 +246,7 @@ Item {
             if (transposition) {
                 applyTransposition(tuning, transposition);
             } else {
-                for (var pitch = 127; !found && pitch > 0; pitch -= step) {
+                for (var pitch = 127; pitch > 0; pitch -= step) {
                     var testNote = mscore.newElement(Element.NOTE);
                     testNote.string = string;
                     testNote.pitch = pitch;
