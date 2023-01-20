@@ -31,6 +31,7 @@ Item {
 
     property var score: null
     property var cursor: null
+    property int cursorLastTick: -1
 
     property var instrument: null
     property var tuning: [64, 59, 55, 50, 45, 40, 0, 0, 0, 0] // default is 6-string classical guitar tuning
@@ -70,6 +71,11 @@ Item {
 
     function findSelectedChord() {
         if (!score)
+            return null;
+
+        // Prevent the previous chord being considered a current position when
+        // moving to the next measure in the second (or greater) voice.
+        if (!cursor.element)
             return null;
 
         var selectedElements = score.selection.elements;
@@ -130,6 +136,7 @@ Item {
         }
 
         updateInstrumentData();
+        cursorLastTick = cursor.tick;
     }
 
     function updateInstrumentData() {
@@ -223,7 +230,7 @@ Item {
     function updateState(selectionChanged) {
         updateCurrentScore();
 
-        if (selectionChanged)
+        if (selectionChanged || cursor.tick != cursorLastTick)
             updateSelection();
     }
 
