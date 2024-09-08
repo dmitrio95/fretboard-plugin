@@ -1,5 +1,9 @@
 # Changelog
 
+### 0.6.0 - 2024-09-08
+- Add support for MuseScore 4.4
+- Fix few issues with note input
+
 ### 0.5.0 - 2022-12-19
 - Add support for MuseScore 4
 - The plugin now automatically determines a number of strings and frets for the selected instrument and switches its settings accordingly. Handling of tunings for different instruments is also partially improved. (Requires MuseScore 3.5)

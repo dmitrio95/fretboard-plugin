@@ -3,17 +3,24 @@ import MuseScore 3.0
 
 MuseScore {
     id: plugin
-    version:  "0.5.0"
+    version:  "0.6.0"
     description: "Simple guitar fretboard to visualise and edit tablature scores"
     requiresScore: compatibility.useApi4
 
     implicitWidth: fretLoader.item ? fretLoader.item.implicitWidth : 0
     implicitHeight: fretLoader.item ? fretLoader.item.implicitHeight : 0
 
+    // Special comments for MuseScore 4.4 plugin metadata handling.
+    // For some reason these comments don't work if put after the QtObject below.
+    // https://github.com/musescore/MuseScore/wiki/Updating-plugins-for-MuseScore-Studio-4.4
+    //4.4 title: "Fretboard"
+    //4.4 categoryCode: "note-input"
+
     QtObject {
         id: compatibility
 
         readonly property bool useApi4: mscoreVersion >= 40000
+        readonly property bool useApi44: mscoreVersion >= 40400
     }
 
     Component.onCompleted: {
@@ -87,7 +94,7 @@ MuseScore {
             }
 
             if (!pluginDockPanel) {
-                var pluginDockComponent = Qt.createComponent("MU4FretboardDockPanel.qml");
+                var pluginDockComponent = Qt.createComponent(compatibility.useApi44 ? "MU44FretboardDockPanel.qml" : "MU40FretboardDockPanel.qml");
                 pluginDockPanel = pluginDockComponent.createObject(notationPage, {root: notationPage, mscore: plugin});
                 notationPage.panels.push(pluginDockPanel);
             }

@@ -18,6 +18,7 @@ Item {
         readonly property bool useApi334: mscore ? (mscore.mscoreVersion > 30303) : false // Cursor.addNote(pitch, addToChord), Cursor.prev()
         readonly property bool useApi350: mscore ? (mscore.mscoreVersion >= 30500) : false // instrument data, range selection
         readonly property bool useApi4: mscore ? (mscore.mscoreVersion >= 40000) : false
+        readonly property bool useApi44: mscore ? (mscore.mscoreVersion >= 40400) : false
     }
 
     readonly property bool darkMode: Window.window ? Window.window.color.hsvValue < 0.5 : false
@@ -645,7 +646,7 @@ Item {
             width: parent.width
             property bool checked: item.checked
 
-            source: compatibility.useApi4 ? "MU4CheckBox.qml" : undefined
+            source: compatibility.useApi4 ? (compatibility.useApi44 ? "MU44CheckBox.qml" : "MU40CheckBox.qml") : undefined
             sourceComponent: compatibility.useApi4 ? undefined : mu3checkBoxComponent
 
             // Show full text in a tooltip if it doesn't fit into width.
