@@ -222,6 +222,12 @@ Item {
                 mscore.cmd("escape");
                 cursor = score.newCursor();
             }
+
+            // Prevent a crash on obtaining keySignature property due to uninitialized input state of this cursor.
+            // Not sure about the exact version but we didn't see this crash on MuseScore 3.
+            if (compatibility.useApi44 && !cursor.segment) {
+                cursor.rewind(Cursor.SCORE_START);
+            }
         } else if (score && !mscore.curScore) {
             score = null;
             cursor = null;

@@ -3,7 +3,7 @@ import MuseScore 3.0
 
 MuseScore {
     id: plugin
-    version:  "0.6.0"
+    version:  "0.6.1"
     description: "Simple guitar fretboard to visualise and edit tablature scores"
     requiresScore: compatibility.useApi4
 

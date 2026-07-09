@@ -1,5 +1,8 @@
 # Changelog
 
+### 0.6.1 - 2026-07-10
+- Fix a crash on hovering the fretboard right after opening a new score
+
 ### 0.6.0 - 2024-09-08
 - Add support for MuseScore 4.4
 - Fix few issues with note input
